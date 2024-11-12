@@ -1,5 +1,7 @@
 #pragma once
 
+#include <cstddef>
+
 namespace simplistic {
     namespace io {
         template <typename CharT>
