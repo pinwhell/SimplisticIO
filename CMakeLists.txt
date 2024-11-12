@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.15)
 
 project(simplistic-io)
-include(CBuildKit)
+find_package(CBuildKit REQUIRED)
 
 add_subdirectory(src)
 add_subdirectory(tests)
