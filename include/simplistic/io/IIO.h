@@ -10,21 +10,21 @@ namespace simplistic {
         public:
             virtual ~IIO() = default;
 
-            virtual std::size_t Read(const std::uint8_t* where, std::uint8_t* out, std::size_t len) = 0;
-            virtual std::size_t Write(std::uint8_t* where, const std::uint8_t* in, std::size_t len) = 0;
+            virtual std::size_t ReadRaw(const std::uint8_t* where, std::uint8_t* out, std::size_t len) = 0;
+            virtual std::size_t WriteRaw(std::uint8_t* where, const std::uint8_t* in, std::size_t len) = 0;
 
             template<typename TObj, typename TWhere = std::uint64_t>
-            inline TObj ReadO(TWhere where)
+            inline TObj Read(TWhere where = 0)
             {
-                TObj obj{}; if (Read((const std::uint8_t*)where, (std::uint8_t*)&obj, sizeof(TObj)) != sizeof(TObj))
+                TObj obj{}; if (ReadRaw((const std::uint8_t*)where, (std::uint8_t*)&obj, sizeof(TObj)) != sizeof(TObj))
                     throw IOException();
                 return obj;
             }
 
             template<typename TObj, typename TWhere = std::uint64_t>
-            inline void WriteO(TWhere where, const TObj& what)
+            inline void Write(TWhere where, const TObj& what)
             {
-                if (Write((std::uint8_t*)where, (const std::uint8_t*)&what, sizeof(TObj)) != sizeof(TObj))
+                if (WriteRaw((std::uint8_t*)where, (const std::uint8_t*)&what, sizeof(TObj)) != sizeof(TObj))
                     throw IOException();
             }
         };

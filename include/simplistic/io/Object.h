@@ -28,21 +28,21 @@ namespace simplistic {
 			bool operator==(const Object& other) const;
 			bool operator!=(const Object& other) const;
 
-			template<typename T, typename TOff>
-			inline T Read(TOff off) const
+			template<typename T, typename TOff = std::size_t>
+			inline T Read(TOff off = {}) const
 			{
-				return mIO->ReadO<T>(mEntry + (std::size_t)off);
+				return mIO->Read<T>(mEntry + (std::size_t)off);
 			}
 
-			template<typename T, typename TOff>
-			inline std::basic_string<T, std::char_traits<T>, std::allocator<T>> DerrefString(TOff off, size_t sz = 0) const
+			template<typename T, typename TOff = std::size_t>
+			inline std::basic_string<T, std::char_traits<T>, std::allocator<T>> DerrefString(TOff off = {}, size_t sz = 0) const
 			{
 				return Derref((std::size_t)off)
 					.ReadString<T>(0, sz);
 			}
 
-			template<typename T, typename TOff>
-			inline std::basic_string<T, std::char_traits<T>, std::allocator<T>> ReadString(TOff off, size_t sz = 0) const
+			template<typename T, typename TOff = std::size_t>
+			inline std::basic_string<T, std::char_traits<T>, std::allocator<T>> ReadString(TOff off = {}, size_t sz = 0) const
 			{
 				using String = std::basic_string<T, std::char_traits<T>, std::allocator<T>>;
 				constexpr size_t MAX_BLOB_SIZE_EXP = 10;  // For 1KB
@@ -52,7 +52,7 @@ namespace simplistic {
 				if (sz > 0)
 				{
 					storage.resize(sz);
-					if (!mIO->Read((const std::uint8_t*)strBase, (std::uint8_t*)storage.data(), sz * sizeof(T)))
+					if (!mIO->ReadRaw((const std::uint8_t*)strBase, (std::uint8_t*)storage.data(), sz * sizeof(T)))
 						return String{};
 					return std::string(storage.data(), storage.data() + sz);
 				}
@@ -66,7 +66,7 @@ namespace simplistic {
 
 					storage.resize(currBlobSize);
 
-					if (!mIO->Read((const std::uint8_t*)(strBase + exploredLen), (std::uint8_t*)storage.data() + exploredLen, (currBlobSize - exploredLen) * sizeof(T)))
+					if (!mIO->ReadRaw((const std::uint8_t*)(strBase + exploredLen), (std::uint8_t*)storage.data() + exploredLen, (currBlobSize - exploredLen) * sizeof(T)))
 						return String{};
 
 					size_t localUnexploredLen = currBlobSize - exploredLen;
@@ -85,30 +85,30 @@ namespace simplistic {
 				return String{};
 			}
 
-			template<typename T>
-			inline void Write(size_t off, const T& o) const
+			template<typename T, typename TOff = std::size_t>
+			inline void Write(TOff off = {}, const T& o = {}) const
 			{
-				mIO->WriteO<T>(mEntry + off, o);
+				mIO->Write<T>(mEntry + off, o);
 			}
 
-			template<typename TOff>
-			inline std::vector<std::uint8_t> ReadBlob(TOff off, size_t sz) const
+			template<typename TOff = std::size_t>
+			inline std::vector<std::uint8_t> ReadBlob(size_t sz = 0, TOff off = {}) const
 			{
 				std::vector<std::uint8_t> blob(sz);
-				mIO->Read((const std::uint8_t*)(mEntry + (size_t)off), blob.data(), sz);
+				mIO->ReadRaw((const std::uint8_t*)(mEntry + (size_t)off), blob.data(), sz);
 				return blob;
 			}
 
-			template<typename TOff>
-			inline uint64_t ReadPtr(TOff off) const
+			template<typename TOff = std::size_t>
+			inline uint64_t ReadPtr(TOff off = {}) const
 			{
 				return mIs64
-					? mIO->ReadO<std::uint64_t>(mEntry + (std::size_t)off)
-					: mIO->ReadO<std::uint32_t>(mEntry + (std::size_t)off);
+					? mIO->Read<std::uint64_t>(mEntry + (std::size_t)off)
+					: mIO->Read<std::uint32_t>(mEntry + (std::size_t)off);
 			}
 
-			template<typename TOff>
-			inline Object Derref(TOff off) const
+			template<typename TOff = std::size_t>
+			inline Object Derref(TOff off = {}) const
 			{
 				return Object(
 					mIO,
@@ -116,8 +116,8 @@ namespace simplistic {
 				);
 			}
 
-			template<typename TOff>
-			inline Object Address(TOff off) const {
+			template<typename TOff = std::size_t>
+			inline Object Address(TOff off = {}) const {
 				return Object(
 					mIO,
 					mEntry + (std::size_t)off,
