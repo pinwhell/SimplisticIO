@@ -1,6 +1,7 @@
 #include <iostream>
 #include <simplistic/io/SelfIO.h>
-#include <simplistic/io/Object.h>
+//#include <simplistic/io/Object.h>
+#include "../include/simplistic/io/Object.h"
 
 using namespace simplistic::io;
 
@@ -11,6 +12,7 @@ int main()
 	const char* pExample = example.data();
 	Self io{};
 	Object obj(&io, 0);
+	obj += 0;
 	auto y = obj.Read<int>(&x);
 	std::string s1 = obj.ReadString<char>(example.data());
 	std::string s2 = obj.DerrefString<char>(&pExample);

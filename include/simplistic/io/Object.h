@@ -9,24 +9,26 @@
 
 namespace simplistic {
 	namespace io {
-		class Object {
+		template<typename TObject = std::uint8_t>
+		class ObjectT {
 		public:
-			Object() : Object(nullptr, 0, false) {}
+			ObjectT() : ObjectT(nullptr, 0, false) {}
 
 			template<typename TWhere>
-			Object(IIO* io, TWhere entry = {}, bool bIs64 = sizeof(std::uintptr_t) == sizeof(std::uint64_t))
+			ObjectT(IIO* io, TWhere entry = {}, bool bIs64 = sizeof(std::uintptr_t) == sizeof(std::uint64_t))
 				: mIO(io)
 				, mEntry((std::uint64_t)entry)
 				, mIs64(bIs64)
+				, mObject{}
 			{}
 
-			Object(const Object& obj);
-			Object& operator=(const Object&) = delete;
-			Object(Object&& other) noexcept;
-			Object& operator=(Object&& other) noexcept;
+			ObjectT(const ObjectT& obj);
+			ObjectT& operator=(const ObjectT&) = delete;
+			ObjectT(ObjectT&& other) noexcept;
+			ObjectT& operator=(ObjectT&& other) noexcept;
 			operator bool() const;
-			bool operator==(const Object& other) const;
-			bool operator!=(const Object& other) const;
+			bool operator==(const ObjectT& other) const;
+			bool operator!=(const ObjectT& other) const;
 
 			template<typename T, typename TOff = std::size_t>
 			inline T Read(TOff off = {}) const
@@ -108,26 +110,66 @@ namespace simplistic {
 			}
 
 			template<typename TOff = std::size_t>
-			inline Object Derref(TOff off = {}) const
+			inline ObjectT Derref(TOff off = {}) const
 			{
-				return Object(
+				return ObjectT(
 					mIO,
 					ReadPtr((std::size_t)off)
 				);
 			}
 
-			template<typename TOff = std::size_t>
-			inline Object Address(TOff off = {}) const {
-				return Object(
+			template<typename TAddress = TObject, typename TCount = std::size_t>
+			inline ObjectT Address(TCount count = {}) const {
+				return ObjectT(
 					mIO,
-					mEntry + (std::size_t)off,
+					mEntry + ((std::size_t)count) * sizeof(TAddress),
 					mIs64
 				);
+			}
+
+			template<typename TObject = std::uint8_t, typename TOff = std::size_t>
+			inline std::vector<TObject> ReadArray(std::size_t count, TOff off = {}) const
+			{
+				std::vector<TObject> arr(count, TObject{});
+				mIO->ReadRawT(mEntry + off, arr.data(), count * sizeof(TObject));
+				return arr;
+			}
+
+			template<typename TCount>
+			inline ObjectT operator +(TCount adv) const
+			{
+				return Address(adv);
+			}
+
+			template<typename TCount>
+			inline void operator+=(TCount adv)
+			{
+				mEntry += adv * sizeof(TObject);
+			}
+
+			TObject& operator*()
+			{
+				mIO->ReadRawT(mEntry, &mObject, sizeof(mObject));
+				return mObject;
+			}
+
+			TObject* operator->()
+			{
+				mIO->ReadRawT(mEntry, &mObject, sizeof(mObject));
+				return &mObject;
+			}
+
+			void Persist() const
+			{
+				mIO->WriteRawT(mEntry, &mObject, sizeof(mObject));
 			}
 
 			std::uint64_t mEntry;
 			IIO* mIO;
 			bool mIs64;
+			TObject mObject;
 		};
+
+		using Object = ObjectT<std::uint8_t>;
 	}
 }
