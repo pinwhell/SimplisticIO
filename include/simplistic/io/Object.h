@@ -10,17 +10,13 @@
 namespace simplistic {
 	namespace io {
 		template <typename T>
-		struct is_string_or_wstring : std::false_type {};
+		struct is_basic_string : std::false_type {};
 
-		template <>
-		struct is_string_or_wstring<std::string> : std::true_type {};
+		template <typename CharT, typename Traits, typename Allocator>
+		struct is_basic_string<std::basic_string<CharT, Traits, Allocator>> : std::true_type {};
 
-		template <>
-		struct is_string_or_wstring<std::wstring> : std::true_type {};
-
-		// Adding the _v shortcut for convenience
 		template <typename T>
-		constexpr bool is_string_or_wstring_v = is_string_or_wstring<T>::value;
+		constexpr bool is_basic_string_v = is_basic_string<T>::value;
 
 		template<typename TObject = std::uint8_t>
 		class ObjectT {
@@ -66,6 +62,8 @@ namespace simplistic {
 					// Leave 'other' in a safe state
 					other.mEntry = 0;
 					other.mIO = nullptr;
+					if constexpr (std::is_same_v<TObjectT::value_type, Object::value_type>)
+						other.mObj = std::move(mObject);
 				}
 				return *this;
 			}
@@ -86,45 +84,39 @@ namespace simplistic {
 			}
 
 			template<typename T, typename TOff = std::size_t>
-			inline T Read(TOff off = {}) const
+			inline std::enable_if_t<!is_basic_string_v<T>, T>  Read(TOff off = {}) const
 			{
 				return mIO->Read<T>(mEntry + (std::size_t)off);
 			}
 
-			template<typename T, typename TOff = std::size_t>
-			inline std::basic_string<T, std::char_traits<T>, std::allocator<T>> DerrefString(TOff off = {}, size_t sz = 0) const
+			template<typename TBasicStr = TObject,
+				std::size_t MAX_BLOB_SIZE_EXP = 10,
+				typename TOff = std::size_t,
+				typename TChar = TBasicStr::value_type>
+			inline std::enable_if_t<is_basic_string_v<TBasicStr>, TBasicStr> Read(TOff off = {}, size_t sz = 0) const
 			{
-				return Derref((std::size_t)off)
-					.ReadString<T>(0, sz);
-			}
-
-			template<typename T, std::size_t MAX_BLOB_SIZE_EXP = 10, typename TOff = std::size_t>
-			inline std::basic_string<T, std::char_traits<T>, std::allocator<T>> ReadString(TOff off = {}, size_t sz = 0) const
-			{
-				using String = std::basic_string<T, std::char_traits<T>, std::allocator<T>>;
-
 				if (sz > 0)
 				{
-					std::vector<T> strArr = ReadArray<T>(sz, off);
-					return String(strArr.begin(), strArr.end());
+					std::vector<TChar> strArr = ReadArray<TChar>(sz, off);
+					return TBasicStr(strArr.begin(), strArr.end());
 				}
 
-				std::vector<T> buff; buff.reserve(1ull << MAX_BLOB_SIZE_EXP);
+				std::vector<TChar> buff; buff.reserve(1ull << MAX_BLOB_SIZE_EXP);
 				std::size_t currOrder = 0;
 				for (;;)
 				{
 					if (currOrder >= MAX_BLOB_SIZE_EXP)	break;
 					std::size_t currSliceSz = 1ull << currOrder;
-					std::vector<T> currSlice = ReadArray<T>(currSliceSz, (std::size_t)off + buff.size());
+					std::vector<TChar> currSlice = ReadArray<TChar>(currSliceSz, (std::size_t)off + buff.size());
 					buff.insert(buff.end(), currSlice.begin(), currSlice.end());
 					currOrder++;
-					std::size_t probeLen = simplistic::io::strnlen<T>(buff.data(), buff.size());
+					std::size_t probeLen = simplistic::io::strnlen<TChar>(buff.data(), buff.size());
 					if (buff.size() == probeLen) continue;
 					// At this point, null-terminator found...
 					// Returning the string.
-					return String(buff.data(), probeLen);
+					return TBasicStr(buff.data(), probeLen);
 				}
-				return String{};
+				return TBasicStr{};
 			}
 
 			template<typename T, typename TOff = std::size_t>
@@ -149,12 +141,13 @@ namespace simplistic {
 					: mIO->Read<std::uint32_t>(mEntry + (std::size_t)off);
 			}
 
-			template<typename TOff = std::size_t>
-			inline ObjectT Derref(TOff off = {}) const
+			template<typename TObjectT = ObjectT, typename TOff = std::size_t>
+			inline TObjectT Derref(TOff off = {}) const
 			{
-				return ObjectT(
+				return TObjectT(
 					mIO,
-					ReadPtr((std::size_t)off)
+					ReadPtr((std::size_t)off),
+					mIs64
 				);
 			}
 
@@ -188,22 +181,22 @@ namespace simplistic {
 			}
 			
 			template <typename TObj = TObject>
-			inline std::enable_if_t<!is_string_or_wstring_v<TObj>, TObj&> operator*()
+			inline std::enable_if_t<!is_basic_string_v<TObj>, TObj&> operator*()
 			{
 				mIO->ReadRawT(mEntry, &mObject, sizeof(mObject));
 				return mObject;
 			}
 
-			template <typename TObj = TObject>
-			inline std::enable_if_t<is_string_or_wstring_v<TObj>, TObj> operator*()
+			template <typename TBasicStr = TObject>
+			inline std::enable_if_t<is_basic_string_v<TBasicStr>, TBasicStr&> operator*()
 			{
-				return ReadString<TObject::value_type>();
+				mObject = Read<TBasicStr>();
+				return mObject;
 			}
 
 			inline TObject* operator->()
 			{
-				mIO->ReadRawT(mEntry, &mObject, sizeof(mObject));
-				return &mObject;
+				return &operator*();
 			}
 
 			inline void Persist() const
@@ -222,8 +215,17 @@ namespace simplistic {
 			TObject mObject;
 		};
 
+		// Base Object
 		using Object = ObjectT<std::uint8_t>;
+
+		// Object String
 		using OString = ObjectT<std::string>;
+
+		// Object Wide String
 		using OWstring = ObjectT<std::wstring>;
+
+		// Object Basic String
+		template<typename TBasicString, typename = std::enable_if_t<is_basic_string_v<TBasicString>, void>>
+		using OBstring = ObjectT<TBasicString>;
 	}
 }

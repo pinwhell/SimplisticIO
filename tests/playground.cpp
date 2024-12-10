@@ -16,11 +16,11 @@ int main()
 	
 	auto y = obj.Read<int>(&x);
 	std::string s1 = *obj.Address<OString>(example.data());
-	std::string s2 = obj.DerrefString<char>(&pExample);
+	std::string s2 = *obj.Derref<OString>(&pExample);
 	auto s3 = obj
 		.Address(&pExample)
-		.Derref()
-		.ReadString<char>(); 
+		.Derref<OString>()
+		.Read(); 
 	std::cout << std::boolalpha << (
 		example == s1 &&
 		example == s2 &&
