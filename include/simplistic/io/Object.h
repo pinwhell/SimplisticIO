@@ -129,7 +129,8 @@ namespace simplistic {
 			inline std::vector<std::uint8_t> ReadBlob(size_t sz = 0, TOff off = {}) const
 			{
 				std::vector<std::uint8_t> blob(sz);
-				mIO->ReadRaw((const std::uint8_t*)(mEntry + (size_t)off), blob.data(), sz);
+				if (mIO->ReadRaw((const std::uint8_t*)(mEntry + (size_t)off), blob.data(), sz) != sz)
+					throw IOException();
 				return blob;
 			}
 
@@ -164,7 +165,9 @@ namespace simplistic {
 			inline std::vector<TObj> ReadArray(std::size_t count, TOff off = {}) const
 			{
 				std::vector<TObj> arr(count, TObj{});
-				mIO->ReadRawT(mEntry + off, arr.data(), count * sizeof(TObj));
+				auto toReadSz = count * sizeof(TObj);
+				if (mIO->ReadRawT(mEntry + off, arr.data(), toReadSz) != toReadSz)
+					throw IOException();
 				return arr;
 			}
 
@@ -183,7 +186,8 @@ namespace simplistic {
 			template <typename TObj = TObject>
 			inline std::enable_if_t<!is_basic_string_v<TObj>, TObj&> operator*()
 			{
-				mIO->ReadRawT(mEntry, &mObject, sizeof(mObject));
+				if (mIO->ReadRawT(mEntry, &mObject, sizeof(mObject)) != sizeof(mObject))
+					throw IOException();
 				return mObject;
 			}
 
@@ -199,9 +203,9 @@ namespace simplistic {
 				return &operator*();
 			}
 
-			inline void Persist() const
+			inline bool Persist() const
 			{
-				mIO->WriteRawT(mEntry, &mObject, sizeof(mObject));
+				return mIO->WriteRawT(mEntry, &mObject, sizeof(mObject)) == sizeof(mObject);
 			}
 
 			inline std::size_t PtrSz() const
