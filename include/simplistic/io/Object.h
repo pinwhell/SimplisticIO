@@ -57,13 +57,13 @@ namespace simplistic {
 					// Transfer ownership of resources from 'other' to 'this'
 					mEntry = other.mEntry;
 					mIO = other.mIO;
-					mObject = std::move(other.mObject);
 
 					// Leave 'other' in a safe state
 					other.mEntry = 0;
 					other.mIO = nullptr;
-					if constexpr (std::is_same_v<TObjectT::value_type, Object::value_type>)
-						other.mObj = std::move(mObject);
+					if constexpr (std::is_same_v<decltype(mObject), decltype(other.mObject)>)
+						mObject = std::move(other.mObject);
+
 				}
 				return *this;
 			}
